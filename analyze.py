@@ -8,23 +8,42 @@ Generates constituency-level statistics and household impact percentages.
 
 import pandas as pd
 import glob
+import sys
+from pathlib import Path
+
+def check_file(path, description):
+    """Check if required file exists."""
+    if not Path(path).exists():
+        print(f"ERROR: Missing {description}")
+        print(f"  Expected: {path}")
+        print("\nRun: python download_data.py")
+        sys.exit(1)
 
 def load_constituency_lookup():
     """Load constituency code to name mapping."""
     lookup_path = "data/Westminster_Parliamentary_Constituency_names_and_codes_UK_as_at_12_24.csv"
+    check_file(lookup_path, "constituency names/codes")
     df = pd.read_csv(lookup_path)
     return dict(zip(df['PCON24CD'], df['PCON24NM']))
 
 def load_postcode_mapping():
     """Load NSPL postcode to constituency mapping."""
     csv_files = glob.glob("data/NSPL/NSPL_FEB_2025_UK_*.csv")
+    if not csv_files:
+        print("ERROR: Missing NSPL postcode data")
+        print("  Expected: data/NSPL/NSPL_FEB_2025_UK_*.csv")
+        print("\nRun: python download_data.py")
+        sys.exit(1)
+    print(f"Loading {len(csv_files)} NSPL files...")
     dfs = [pd.read_csv(f, usecols=['pcds', 'pcon']) for f in csv_files]
     postcode_lookup = pd.concat(dfs, ignore_index=True)
     return postcode_lookup.dropna(subset=['pcon'])
 
 def load_household_data():
     """Load Census 2021 household counts."""
-    df = pd.read_excel('data/TS003_household_composition_p19wpc.xlsx', sheet_name='Dataset')
+    xlsx_path = 'data/TS003_household_composition_p19wpc.xlsx'
+    check_file(xlsx_path, "Census 2021 household data")
+    df = pd.read_excel(xlsx_path, sheet_name='Dataset')
     df = df[df['Household composition (15 categories)'] != 'Does not apply']
     households = df.groupby([
         'Post-2019 Westminster Parliamentary constituencies Code',
@@ -36,9 +55,13 @@ def load_household_data():
 def analyze_threshold(threshold, const_names, postcode_to_const, households):
     """Analyze properties above threshold by constituency."""
     threshold_label = f'{threshold//1_000_000}m'
+    print(f"\nProcessing £{threshold:,} threshold...")
 
     # Load and filter property data
-    df = pd.read_csv('data/pp-2024.csv', header=None, names=[
+    pp_path = 'data/pp-2024.csv'
+    check_file(pp_path, "Land Registry 2024 data")
+    print("Loading property data...")
+    df = pd.read_csv(pp_path, header=None, names=[
         'transaction_id', 'price', 'date', 'postcode', 'property_type',
         'old_new', 'duration', 'paon', 'saon', 'street', 'locality',
         'town', 'district', 'county', 'ppd_category', 'record_status'
@@ -65,10 +88,11 @@ def analyze_threshold(threshold, const_names, postcode_to_const, households):
         const_stats['num_sales'] / const_stats['total_households'] * 100
     ).round(3)
 
-    # Save outputs
-    const_stats.to_csv(f'constituency_impact_{threshold_label}.csv')
+    # Save constituency impact
+    const_stats = const_stats.sort_values('num_sales', ascending=False)
+    const_stats.to_csv(f'constituency_impact_{threshold_label}.csv', index=False)
 
-    # Save household impact file
+    # Save household impact
     household_impact = const_stats[['constituency_name', 'pct_households_affected']].copy()
     household_impact['avg_loss_per_household'] = 2000
     household_impact = household_impact.sort_values('pct_households_affected', ascending=False)
@@ -77,23 +101,25 @@ def analyze_threshold(threshold, const_names, postcode_to_const, households):
     return const_stats
 
 if __name__ == '__main__':
-    print("Loading reference data...")
+    print("="*60)
+    print("UK Mansion Tax Analysis")
+    print("="*60)
+
+    print("\nLoading reference data...")
     const_names = load_constituency_lookup()
     postcode_to_const = load_postcode_mapping()
     households = load_household_data()
 
-    print("\nAnalyzing £1.5m threshold...")
     stats_1_5m = analyze_threshold(1_500_000, const_names, postcode_to_const, households)
-    print(f"  {len(stats_1_5m)} constituencies affected")
-    print(f"  {stats_1_5m['num_sales'].sum():.0f} total sales")
+    print(f"  {len(stats_1_5m)} constituencies, {stats_1_5m['num_sales'].sum():.0f} sales")
 
-    print("\nAnalyzing £2m threshold...")
     stats_2m = analyze_threshold(2_000_000, const_names, postcode_to_const, households)
-    print(f"  {len(stats_2m)} constituencies affected")
-    print(f"  {stats_2m['num_sales'].sum():.0f} total sales")
+    print(f"  {len(stats_2m)} constituencies, {stats_2m['num_sales'].sum():.0f} sales")
 
-    print("\nDone. Generated:")
+    print("\n" + "="*60)
+    print("Generated:")
     print("  constituency_impact_1m.csv")
     print("  constituency_impact_2m.csv")
     print("  household_impact_1m.csv")
     print("  household_impact_2m.csv")
+    print("="*60)
