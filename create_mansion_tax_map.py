@@ -24,16 +24,12 @@ def load_hex_coordinates():
     for gss_code, hex_data in hexjson['hexes'].items():
         constituencies.append({
             'gss_code': gss_code,
-            'constituency_name': hex_data['n'],
+            'constituency': hex_data['n'],
             'q': hex_data['q'],  # column
             'r': hex_data['r'],  # row
         })
 
-    # Convert to DataFrame
     df = pd.DataFrame(constituencies)
-
-    # HexJSON uses q,r coordinates directly as grid positions
-    # Layout is "odd-r" which means odd rows are offset
     df['grid_x'] = df['q']
     df['grid_y'] = df['r']
 
@@ -62,15 +58,14 @@ def create_hex_map(hex_coords, impact_data, threshold_label='1m'):
 
     # Merge hex coordinates with impact data
     merged = hex_coords.merge(
-        impact_data[['constituency_name', 'pct_households_affected', 'num_sales', 'estimated_annual_revenue']],
-        on='constituency_name',
+        impact_data[['constituency', 'properties', 'revenue']],
+        on='constituency',
         how='left'
     )
 
     # Fill NaN values (constituencies with no sales above threshold)
-    merged['pct_households_affected'] = merged['pct_households_affected'].fillna(0)
-    merged['num_sales'] = merged['num_sales'].fillna(0)
-    merged['estimated_annual_revenue'] = merged['estimated_annual_revenue'].fillna(0)
+    merged['properties'] = merged['properties'].fillna(0)
+    merged['revenue'] = merged['revenue'].fillna(0)
 
     # Apply hexagonal positioning (offset odd rows by 0.5 for "odd-r" layout)
     merged['plot_x'] = merged.apply(
@@ -82,18 +77,16 @@ def create_hex_map(hex_coords, impact_data, threshold_label='1m'):
     # Create hover text
     threshold_amount = '£1.5m' if threshold_label == '1m' else '£2m'
     merged['hover_text'] = merged.apply(
-        lambda row: f"{row['constituency_name']}<br>"
-                   f"Households affected: {row['pct_households_affected']:.2f}%<br>"
-                   f"Sales above {threshold_amount}: {int(row['num_sales'])}<br>"
-                   f"Est. annual revenue: £{int(row['estimated_annual_revenue']):,}",
+        lambda row: f"{row['constituency']}<br>"
+                   f"Properties above {threshold_amount}: {int(row['properties'])}<br>"
+                   f"Est. annual revenue: £{int(row['revenue']):,}",
         axis=1
     )
 
     # Create Plotly figure
     fig = go.Figure()
 
-    # Calculate symmetric color range
-    max_pct = merged['pct_households_affected'].abs().max()
+    max_properties = merged['properties'].max()
 
     fig.add_trace(go.Scatter(
         x=merged['plot_x'],
@@ -101,16 +94,15 @@ def create_hex_map(hex_coords, impact_data, threshold_label='1m'):
         mode='markers',
         marker=dict(
             size=12,
-            color=merged['pct_households_affected'],
-            colorscale='Teal',  # Similar to DIVERGING_GRAY_TEAL
+            color=merged['properties'],
+            colorscale='Teal',
             cmin=0,
-            cmax=max_pct,
+            cmax=max_properties,
             colorbar=dict(
-                title='% Households<br>Affected',
+                title='Properties',
                 thickness=15,
                 len=0.8,
                 x=0.95,
-                tickformat='.2f'
             ),
             symbol='hexagon',
             line=dict(width=0.5, color='white')
@@ -120,7 +112,6 @@ def create_hex_map(hex_coords, impact_data, threshold_label='1m'):
         showlegend=False
     ))
 
-    # Update layout
     threshold_title = '£1.5m' if threshold_label == '1m' else '£2m'
     fig.update_layout(
         title=dict(
@@ -156,30 +147,25 @@ def main():
     print("UK Mansion Tax Impact - Hexagonal Map Visualization")
     print("="*60)
 
-    # Load data
     hex_coords = load_hex_coordinates()
 
-    # Generate maps for both thresholds
     for threshold in ['1m', '2m']:
         impact_data = load_impact_data(threshold)
         if impact_data is None:
             continue
 
-        # Create map
         fig = create_hex_map(hex_coords, impact_data, threshold)
 
-        # Save as HTML
         output_file = f'mansion_tax_map_{threshold}.html'
         fig.write_html(output_file)
         print(f"✓ Saved {output_file}")
 
-        # Save as PNG (requires kaleido)
         try:
             png_file = f'mansion_tax_map_{threshold}.png'
             fig.write_image(png_file, width=1200, height=900)
             print(f"✓ Saved {png_file}")
         except Exception as e:
-            print(f"⚠ Could not save PNG (install kaleido): {e}")
+            print(f"⚠ Could not save PNG: {e}")
 
     print("\n" + "="*60)
     print("Visualization complete!")

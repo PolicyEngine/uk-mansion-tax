@@ -3,11 +3,10 @@
 UK Mansion Tax Analysis - 2024
 
 Analyzes property sales above £1.5m and £2m thresholds by Westminster constituency.
-Generates constituency-level statistics and household impact percentages.
+Uses MySoc 2025 constituency data for postcode matching.
 """
 
 import pandas as pd
-import glob
 import sys
 from pathlib import Path
 
@@ -19,86 +18,63 @@ def check_file(path, description):
         print("\nRun: python download_data.py")
         sys.exit(1)
 
-def load_constituency_lookup():
-    """Load constituency code to name mapping."""
-    lookup_path = "data/Westminster_Parliamentary_Constituency_names_and_codes_UK_as_at_12_24.csv"
-    check_file(lookup_path, "constituency names/codes")
-    df = pd.read_csv(lookup_path)
-    return dict(zip(df['PCON24CD'], df['PCON24NM']))
-
 def load_postcode_mapping():
-    """Load NSPL postcode to constituency mapping."""
-    csv_files = glob.glob("data/NSPL/NSPL_FEB_2025_UK_*.csv")
-    if not csv_files:
-        print("ERROR: Missing NSPL postcode data")
-        print("  Expected: data/NSPL/NSPL_FEB_2025_UK_*.csv")
-        print("\nRun: python download_data.py")
-        sys.exit(1)
-    print(f"Loading {len(csv_files)} NSPL files...")
-    dfs = [pd.read_csv(f, usecols=['pcds', 'pcon']) for f in csv_files]
-    postcode_lookup = pd.concat(dfs, ignore_index=True)
-    return postcode_lookup.dropna(subset=['pcon'])
+    """Load MySoc postcode to constituency mapping."""
+    path = "data/postcodes_with_con.csv"
+    check_file(path, "MySoc postcode lookup")
+    print("Loading postcode mapping...")
+    df = pd.read_csv(path, usecols=['postcode', 'short_code'])
+    # Normalize postcodes (remove spaces, uppercase)
+    df['postcode_norm'] = df['postcode'].str.replace(' ', '').str.upper()
+    return df
 
-def load_household_data():
-    """Load Census 2021 household counts."""
-    xlsx_path = 'data/TS003_household_composition_p19wpc.xlsx'
-    check_file(xlsx_path, "Census 2021 household data")
-    df = pd.read_excel(xlsx_path, sheet_name='Dataset')
-    df = df[df['Household composition (15 categories)'] != 'Does not apply']
-    households = df.groupby([
-        'Post-2019 Westminster Parliamentary constituencies Code',
-        'Post-2019 Westminster Parliamentary constituencies'
-    ])['Observation'].sum().reset_index()
-    households.columns = ['constituency_code', 'constituency_name', 'total_households']
-    return households
+def load_constituency_names():
+    """Load MySoc constituency short_code to name mapping."""
+    path = "data/constituencies.csv"
+    check_file(path, "MySoc constituency names")
+    df = pd.read_csv(path, usecols=['short_code', 'name'])
+    return dict(zip(df['short_code'], df['name']))
 
-def analyze_threshold(threshold, const_names, postcode_to_const, households):
+def analyze_threshold(threshold, postcode_lookup, const_names):
     """Analyze properties above threshold by constituency."""
-    threshold_label = f'{threshold//1_000_000}m'
     print(f"\nProcessing £{threshold:,} threshold...")
 
     # Load and filter property data
     pp_path = 'data/pp-2024.csv'
     check_file(pp_path, "Land Registry 2024 data")
-    print("Loading property data...")
+
     df = pd.read_csv(pp_path, header=None, names=[
         'transaction_id', 'price', 'date', 'postcode', 'property_type',
         'old_new', 'duration', 'paon', 'saon', 'street', 'locality',
         'town', 'district', 'county', 'ppd_category', 'record_status'
     ])
-    df = df[df['price'] >= threshold]
 
-    # Match to constituencies
-    df['pcds'] = df['postcode'].str.strip().str.upper()
-    df = df.merge(postcode_to_const, on='pcds', how='left')
-    df['constituency_name'] = df['pcon'].map(const_names)
+    # Filter by price threshold
+    df = df[df['price'] >= threshold]
+    print(f"  {len(df):,} properties above £{threshold:,}")
+
+    # Normalize postcodes and match to constituencies
+    df['postcode_norm'] = df['postcode'].str.replace(' ', '').str.upper()
+    df = df.merge(postcode_lookup[['postcode_norm', 'short_code']], on='postcode_norm', how='left')
+
+    # Get constituency names
+    df['constituency'] = df['short_code'].map(const_names)
+
+    matched = df['constituency'].notna().sum()
+    print(f"  {matched:,} matched to constituencies ({matched/len(df)*100:.1f}%)")
 
     # Calculate constituency stats
-    const_stats = df[df['pcon'].notna()].groupby('constituency_name').agg({
-        'price': ['count', 'mean', 'median', 'sum']
-    }).round(0)
-    const_stats.columns = ['num_sales', 'mean_price', 'median_price', 'total_value']
-    const_stats['estimated_annual_revenue'] = const_stats['num_sales'] * 2000
-    const_stats = const_stats.sort_values('num_sales', ascending=False)
+    stats = df[df['constituency'].notna()].groupby('constituency').agg(
+        properties=('price', 'count'),
+        mean_price=('price', 'mean'),
+        median_price=('price', 'median'),
+        total_value=('price', 'sum')
+    ).round(0)
 
-    # Add household percentages
-    const_stats = const_stats.merge(households[['constituency_name', 'total_households']],
-                                     left_index=True, right_on='constituency_name', how='left')
-    const_stats['pct_households_affected'] = (
-        const_stats['num_sales'] / const_stats['total_households'] * 100
-    ).round(3)
+    stats['revenue'] = (stats['properties'] * 2000).astype(int)
+    stats = stats.sort_values('properties', ascending=False)
 
-    # Save constituency impact
-    const_stats = const_stats.sort_values('num_sales', ascending=False)
-    const_stats.to_csv(f'constituency_impact_{threshold_label}.csv', index=False)
-
-    # Save household impact
-    household_impact = const_stats[['constituency_name', 'pct_households_affected']].copy()
-    household_impact['avg_loss_per_household'] = 2000
-    household_impact = household_impact.sort_values('pct_households_affected', ascending=False)
-    household_impact.to_csv(f'household_impact_{threshold_label}.csv', index=False)
-
-    return const_stats
+    return stats.reset_index()
 
 if __name__ == '__main__':
     print("="*60)
@@ -106,20 +82,42 @@ if __name__ == '__main__':
     print("="*60)
 
     print("\nLoading reference data...")
-    const_names = load_constituency_lookup()
-    postcode_to_const = load_postcode_mapping()
-    households = load_household_data()
+    postcode_lookup = load_postcode_mapping()
+    const_names = load_constituency_names()
+    print(f"  {len(postcode_lookup):,} postcodes, {len(const_names)} constituencies")
 
-    stats_1_5m = analyze_threshold(1_500_000, const_names, postcode_to_const, households)
-    print(f"  {len(stats_1_5m)} constituencies, {stats_1_5m['num_sales'].sum():.0f} sales")
+    # Analyze both thresholds
+    stats_1_5m = analyze_threshold(1_500_000, postcode_lookup, const_names)
+    stats_2m = analyze_threshold(2_000_000, postcode_lookup, const_names)
 
-    stats_2m = analyze_threshold(2_000_000, const_names, postcode_to_const, households)
-    print(f"  {len(stats_2m)} constituencies, {stats_2m['num_sales'].sum():.0f} sales")
+    # Save individual threshold files
+    stats_1_5m.to_csv('constituency_impact_1m.csv', index=False)
+    stats_2m.to_csv('constituency_impact_2m.csv', index=False)
+
+    # Create merged output (blog format)
+    merged = stats_1_5m[['constituency', 'properties', 'revenue']].rename(
+        columns={'properties': 'properties_1.5m', 'revenue': 'revenue_1.5m'}
+    ).merge(
+        stats_2m[['constituency', 'properties', 'revenue']].rename(
+            columns={'properties': 'properties_2m', 'revenue': 'revenue_2m'}
+        ),
+        on='constituency',
+        how='outer'
+    ).fillna(0)
+
+    # Convert to int
+    for col in ['properties_1.5m', 'revenue_1.5m', 'properties_2m', 'revenue_2m']:
+        merged[col] = merged[col].astype(int)
+
+    merged = merged.sort_values('properties_1.5m', ascending=False)
+    merged.to_csv('mansion_tax_constituency_data.csv', index=False)
 
     print("\n" + "="*60)
-    print("Generated:")
+    print("Results:")
+    print(f"  £1.5m threshold: {stats_1_5m['properties'].sum():,} properties in {len(stats_1_5m)} constituencies")
+    print(f"  £2m threshold: {stats_2m['properties'].sum():,} properties in {len(stats_2m)} constituencies")
+    print("\nGenerated:")
     print("  constituency_impact_1m.csv")
     print("  constituency_impact_2m.csv")
-    print("  household_impact_1m.csv")
-    print("  household_impact_2m.csv")
+    print("  mansion_tax_constituency_data.csv (merged)")
     print("="*60)

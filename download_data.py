@@ -2,11 +2,9 @@
 """Download data for UK mansion tax analysis."""
 
 import os
-import json
-import csv
-import zipfile
 import requests
 from pathlib import Path
+from mysoc_dataset import get_dataset_df
 
 def download(url, dest, desc):
     """Download file with progress."""
@@ -36,64 +34,52 @@ def download(url, dest, desc):
     print(f"\n  ✓ {dest}")
     return True
 
-def download_and_convert_constituencies():
-    """Download constituency names from ArcGIS API and convert to CSV."""
-    dest = "data/Westminster_Parliamentary_Constituency_names_and_codes_UK_as_at_12_24.csv"
+def download_mysoc_data():
+    """Download postcode and constituency data from MySoc."""
+    Path("data").mkdir(parents=True, exist_ok=True)
+    success = True
 
-    if os.path.exists(dest):
-        print(f"\n✓ {dest} (already exists)")
-        return True
+    # Postcodes
+    postcodes_dest = "data/postcodes_with_con.csv"
+    if os.path.exists(postcodes_dest):
+        print(f"\n✓ {postcodes_dest} (already exists)")
+    else:
+        print(f"\n2a. MySoc Postcode Lookup...")
+        try:
+            postcodes = get_dataset_df(
+                repo_name="2025-constituencies",
+                package_name="uk_parliament_2025_postcode_lookup",
+                version_name="latest",
+                file_name="postcodes_with_con.csv",
+                done_survey=True,
+            )
+            postcodes.to_csv(postcodes_dest, index=False)
+            print(f"  ✓ {postcodes_dest} ({len(postcodes):,} postcodes)")
+        except Exception as e:
+            print(f"  ✗ Failed: {e}")
+            success = False
 
-    print(f"\nDownloading Westminster constituency names...")
-    url = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Westminster_Parliamentary_Constituencies_July_2024_Boundaries_UK_BGC/FeatureServer/0/query?where=1%3D1&outFields=PCON24CD,PCON24NM&returnGeometry=false&outSR=4326&f=json"
+    # Constituency names
+    const_dest = "data/constituencies.csv"
+    if os.path.exists(const_dest):
+        print(f"\n✓ {const_dest} (already exists)")
+    else:
+        print(f"\n2b. MySoc Constituency Names...")
+        try:
+            constituencies = get_dataset_df(
+                repo_name="2025-constituencies",
+                package_name="parliament_con_2025",
+                version_name="latest",
+                file_name="parl_constituencies_2025.csv",
+                done_survey=True,
+            )
+            constituencies.to_csv(const_dest, index=False)
+            print(f"  ✓ {const_dest} ({len(constituencies)} constituencies)")
+        except Exception as e:
+            print(f"  ✗ Failed: {e}")
+            success = False
 
-    try:
-        r = requests.get(url, timeout=30)
-        r.raise_for_status()
-        data = r.json()
-
-        Path(dest).parent.mkdir(parents=True, exist_ok=True)
-        with open(dest, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['PCON24CD', 'PCON24NM'])
-            for feature in data['features']:
-                writer.writerow([
-                    feature['attributes']['PCON24CD'],
-                    feature['attributes']['PCON24NM']
-                ])
-        print(f"  ✓ {dest}")
-        return True
-    except Exception as e:
-        print(f"  ✗ Failed: {e}")
-        return False
-
-def extract_nspl_zip():
-    """Extract NSPL zip file."""
-    zip_path = "data/NSPL_FEB_2025.zip"
-    extract_dir = "data/NSPL"
-
-    if os.path.exists(extract_dir) and os.listdir(extract_dir):
-        print(f"\n✓ {extract_dir}/ (already extracted)")
-        return True
-
-    if not os.path.exists(zip_path):
-        print(f"\n✗ {zip_path} not found, cannot extract")
-        return False
-
-    print(f"\nExtracting {zip_path}...")
-    Path(extract_dir).mkdir(parents=True, exist_ok=True)
-
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        members = [m for m in zip_ref.namelist()
-                  if m.startswith('Data/multi_csv/') and m.endswith('.csv')]
-        for member in members:
-            filename = Path(member).name
-            with zip_ref.open(member) as source:
-                with open(f"{extract_dir}/{filename}", 'wb') as target:
-                    target.write(source.read())
-
-    print(f"  ✓ Extracted {len(members)} files to {extract_dir}/")
-    return True
+    return success
 
 print("="*60)
 print("Downloading data for UK Mansion Tax Analysis")
@@ -105,30 +91,20 @@ success = True
 if not download(
     "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2024.csv",
     "data/pp-2024.csv",
-    "1. Land Registry 2024 data (122 MB)"
+    "1. Land Registry 2024 data (147 MB)"
 ):
     success = False
 
-# 2. NSPL Postcode Lookup
+# 2. MySoc Postcode Lookup + Constituency Names
+if not download_mysoc_data():
+    success = False
+
+# 3. HexJSON for constituency map visualization
 if not download(
-    "https://www.arcgis.com/sharing/rest/content/items/5dd216d9899044348a5b08fee09ac5a4/data",
-    "data/NSPL_FEB_2025.zip",
-    "2. NSPL Postcode Lookup (192 MB)"
+    "https://constituencies.open-innovations.org/assets/hexjson/uk-constituencies-2024.hexjson",
+    "data/uk-constituencies-2024.hexjson",
+    "3. HexJSON constituency layout (30 KB)"
 ):
-    success = False
-else:
-    extract_nspl_zip()
-
-# 3. Census 2021 Household Data
-if not download(
-    "https://ukds-ckan.s3.eu-west-1.amazonaws.com/2021/ONS/release1/Household-Characteristics/Household-Composition/TS003-Household-Composition-2021-p19wpc-ONS.xlsx",
-    "data/TS003_household_composition_p19wpc.xlsx",
-    "3. Census 2021 Household Data (200 KB)"
-):
-    success = False
-
-# 4. Westminster Constituency Names
-if not download_and_convert_constituencies():
     success = False
 
 print("\n" + "="*60)

@@ -8,32 +8,39 @@ Based on [FT article (Nov 2025)](https://www.ft.com/content/8e375410-dde2-43bc-8
 
 ```bash
 pip install -r requirements.txt
-python download_data.py  # Auto-downloads all data (~340 MB)
-python analyze.py        # Runs analysis, generates results
+python download_data.py           # Downloads all data
+python analyze.py                 # Generates CSVs
+python create_mansion_tax_map.py  # Generates hex map visualizations
 ```
-
-**That's it!** All data downloads automatically. Zero manual steps.
-
-## Output Files
-
-- `constituency_impact_1m.csv` - Sales, prices, revenue by constituency (£1.5m threshold)
-- `constituency_impact_2m.csv` - Sales, prices, revenue by constituency (£2m threshold)
-- `household_impact_1m.csv` - % of households affected (£1.5m threshold)
-- `household_impact_2m.csv` - % of households affected (£2m threshold)
 
 ## Results Summary
 
-**£1.5m threshold:** 14,581 sales (1.65% of 2024 transactions), 567 constituencies affected
-**£2m threshold:** 8,328 sales (0.94% of 2024 transactions), 555 constituencies affected
+| Threshold | Properties | % of 2024 Sales | Constituencies |
+|-----------|------------|-----------------|----------------|
+| £1.5m | 13,884 | 1.57% | 567 |
+| £2m | 7,849 | 0.89% | 553 |
 
-Top constituency: Cities of London & Westminster (1.6% of households)
+**Top constituency:** Cities of London and Westminster (929 properties above £1.5m)
+
+**Match rate:** 95.2% of high-value properties matched to constituencies
+
+## Output Files
+
+**Analysis (CSV):**
+- `constituency_impact_1m.csv` - Properties, prices, revenue by constituency (£1.5m threshold)
+- `constituency_impact_2m.csv` - Properties, prices, revenue by constituency (£2m threshold)
+- `mansion_tax_constituency_data.csv` - Merged data for both thresholds
+
+**Visualizations:**
+- `mansion_tax_map_1m.html` / `.png` - Hex cartogram (£1.5m threshold)
+- `mansion_tax_map_2m.html` / `.png` - Hex cartogram (£2m threshold)
 
 ## Data Sources
 
-- [UK Land Registry Price Paid Data 2024](https://www.gov.uk/government/statistical-data-sets/price-paid-data-downloads) (147 MB)
-- [ONS National Statistics Postcode Lookup](https://geoportal.statistics.gov.uk/) (192 MB)
-- [Census 2021 TS003 Household Composition](https://statistics.ukdataservice.ac.uk/dataset/ons_2021_ts003_demography_household_composition) (200 KB)
+- [UK Land Registry Price Paid Data 2024](https://www.gov.uk/government/statistical-data-sets/price-paid-data-downloads) - 881,757 transactions
+- [MySoc 2025 Constituencies](https://github.com/mysociety/2025-constituencies) - Postcode lookup (1.7M postcodes) and constituency names
+- [Open Innovations UK Constituencies HexJSON](https://constituencies.open-innovations.org/) - Hex cartogram layout
 
 ## Note
 
-This analysis uses 2024 **sales** data, not total housing stock. Actual policy impact would be ~10-20x larger (sales represent 5-10% of stock).
+This analysis uses 2024 **sales** data, not total housing stock. Actual policy impact would be ~10-20x larger (sales represent 5-10% of stock annually).
