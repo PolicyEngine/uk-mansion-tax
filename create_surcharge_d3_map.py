@@ -130,7 +130,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         }
         .constituency-search:focus {
             outline: none;
-            border-color: #319795;
+            border-color: #39C6C0;
             box-shadow: 0 0 0 3px rgba(49, 151, 149, 0.1);
         }
         .search-results {
@@ -192,11 +192,11 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             color: #6b7280;
         }
         .view-btn:hover {
-            color: #319795;
+            color: #39C6C0;
         }
         .view-btn.active {
             background: white;
-            color: #319795;
+            color: #39C6C0;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         .map-legend {
@@ -209,7 +209,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             width: 180px;
             height: 12px;
             border-radius: 3px;
-            background: linear-gradient(to right, #e0e7ed, #7eb3d3, #2c6496, #1a4a6e);
+            background: linear-gradient(to right, #F7FDFC, #39C6C0, #2C6496);
         }
         .legend-labels {
             display: flex;
@@ -272,12 +272,12 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         }
         .zoom-btn:hover {
             background: #f3f4f6;
-            color: #319795;
+            color: #39C6C0;
         }
         .tooltip {
             position: absolute;
             background: white;
-            border: 2px solid #319795;
+            border: 2px solid #39C6C0;
             border-radius: 8px;
             padding: 12px 16px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -297,7 +297,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         .tooltip-value {
             font-size: 1.25rem;
             font-weight: 700;
-            color: #319795;
+            color: #39C6C0;
             margin: 4px 0;
         }
         .tooltip-row {
@@ -346,7 +346,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         </div>
 
         <div class="map-canvas">
-            <svg id="map" viewBox="-100 -50 1000 1000" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg id="map" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid meet"></svg>
             <div class="map-controls">
                 <button class="zoom-btn" id="zoom-in" title="Zoom in">+</button>
                 <button class="zoom-btn" id="zoom-out" title="Zoom out">−</button>
@@ -393,7 +393,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         });
 
         // Create scale to fit British National Grid into SVG
-        const padding = 40;
+        const padding = 80;
         const dataWidth = xMax - xMin;
         const dataHeight = yMax - yMin;
         const geoScale = Math.min((width - 2 * padding) / dataWidth, (height - 2 * padding) / dataHeight);
@@ -431,13 +431,20 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             svg.transition().call(zoom.transform, d3.zoomIdentity);
         });
 
-        // Color scale - sequential teal based on % of total revenue
+        // Color scale - PolicyEngine teal/blue palette
         const maxPct = Math.max(...Object.values(impactData).map(d => d.pct));
         document.getElementById('max-pct-label').textContent = maxPct.toFixed(1) + '%';
 
         const colorScale = d3.scaleSequential()
             .domain([0, maxPct])
-            .interpolator(t => d3.interpolate('#e0e7ed', '#1a4a6e')(Math.pow(t, 0.5)));
+            .interpolator(t => {
+                // Interpolate from light teal -> teal -> blue
+                if (t < 0.5) {
+                    return d3.interpolate('#F7FDFC', '#39C6C0')(t * 2);
+                } else {
+                    return d3.interpolate('#39C6C0', '#2C6496')((t - 0.5) * 2);
+                }
+            });
 
         // Draw geographic view
         const geoPaths = g.selectAll('path')
@@ -447,7 +454,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             .attr('d', pathGenerator)
             .attr('fill', d => {
                 const data = impactData[d.properties.Name];
-                return data ? colorScale(data.pct) : '#e0e7ed';
+                return data ? colorScale(data.pct) : '#F7FDFC';
             })
             .attr('stroke', '#fff')
             .attr('stroke-width', 0.3)
@@ -461,7 +468,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
                     .attr('stroke-width', function() {
                         return this.classList.contains('hex') ? 1 : 0.3;
                     });
-                d3.select(this).attr('stroke', '#319795').attr('stroke-width', 2);
+                d3.select(this).attr('stroke', '#39C6C0').attr('stroke-width', 2);
             })
             .on('mouseout', hideTooltip);
 
@@ -508,17 +515,31 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             });
         }
 
-        // Calculate hex positions
+        // Calculate hex bounds
+        let hexQMin = Infinity, hexQMax = -Infinity, hexRMin = Infinity, hexRMax = -Infinity;
+        hexData.forEach(h => {
+            hexQMin = Math.min(hexQMin, h.q);
+            hexQMax = Math.max(hexQMax, h.q);
+            hexRMin = Math.min(hexRMin, h.r);
+            hexRMax = Math.max(hexRMax, h.r);
+        });
+
+        // Calculate hex positions - centered in SVG
         const hexSize = 18;
         const hexWidth = hexSize * 2;
         const hexHeight = Math.sqrt(3) * hexSize;
-        const hexOffsetX = 350;
-        const hexOffsetY = 100;
+        const hexRangeQ = hexQMax - hexQMin;
+        const hexRangeR = hexRMax - hexRMin;
+        const hexTotalWidth = hexRangeQ * hexWidth * 0.75 + hexWidth;
+        const hexTotalHeight = hexRangeR * hexHeight + hexHeight;
+        const hexOffsetX = (width - hexTotalWidth) / 2;
+        const hexOffsetY = (height - hexTotalHeight) / 2;
 
-        function hexToPixel(q, r) {
-            const x = hexOffsetX + hexSize * (3/2 * q);
-            const y = hexOffsetY + hexSize * (Math.sqrt(3)/2 * q + Math.sqrt(3) * r);
-            return [x, y];
+        function getHexPosition(q, r) {
+            const x = hexOffsetX + (q - hexQMin) * hexWidth * 0.75 + hexWidth / 2;
+            // Flip y-axis so south (London) is at the bottom
+            const y = hexOffsetY + (hexRMax - r) * hexHeight + (q % 2 !== 0 ? hexHeight / 2 : 0) + hexHeight / 2;
+            return { x, y };
         }
 
         function hexPoints(cx, cy) {
@@ -536,16 +557,15 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         // Draw hexagons (initially hidden)
         const hexes = g.selectAll('.hex')
             .data(hexData)
-            .enter()
-            .append('polygon')
+            .join('polygon')
             .attr('class', 'hex')
             .attr('points', d => {
-                const [x, y] = hexToPixel(d.q, d.r);
-                return hexPoints(x, y);
+                const pos = getHexPosition(d.q, d.r);
+                return hexPoints(pos.x, pos.y);
             })
             .attr('fill', d => {
                 const data = impactData[d.name];
-                return data ? colorScale(data.pct) : '#e0e7ed';
+                return data ? colorScale(data.pct) : '#F7FDFC';
             })
             .attr('stroke', '#fff')
             .attr('stroke-width', 1)
@@ -556,7 +576,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
                 g.selectAll('.hex')
                     .attr('stroke', '#fff')
                     .attr('stroke-width', 1);
-                d3.select(this).attr('stroke', '#319795').attr('stroke-width', 2);
+                d3.select(this).attr('stroke', '#39C6C0').attr('stroke-width', 2);
             })
             .on('mouseout', hideTooltip);
 
@@ -569,7 +589,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
                 geoPaths.style('display', null)
                     .attr('fill', d => {
                         const data = impactData[d.properties.Name];
-                        return data ? colorScale(data.pct) : '#e0e7ed';
+                        return data ? colorScale(data.pct) : '#F7FDFC';
                     });
                 hexes.style('display', 'none');
                 document.getElementById('btn-geo').classList.add('active');
@@ -639,7 +659,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
                     // Highlight constituency
                     if (currentView === 'geo') {
                         g.selectAll('.constituency-path')
-                            .attr('stroke', d => d.properties.Name === name ? '#319795' : '#fff')
+                            .attr('stroke', d => d.properties.Name === name ? '#39C6C0' : '#fff')
                             .attr('stroke-width', d => d.properties.Name === name ? 2 : 0.3);
 
                         // Zoom to constituency
@@ -658,7 +678,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
                         }
                     } else {
                         g.selectAll('.hex')
-                            .attr('stroke', d => d.name === name ? '#319795' : '#fff')
+                            .attr('stroke', d => d.name === name ? '#39C6C0' : '#fff')
                             .attr('stroke-width', d => d.name === name ? 2 : 1);
                     }
                 });
