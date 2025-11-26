@@ -376,8 +376,6 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         const g = svg.append('g');
         const tooltip = document.getElementById('tooltip');
 
-        let currentView = 'geo';
-
         // Calculate bounds of British National Grid coordinates
         let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
         geoData.features.forEach(feature => {
@@ -442,10 +440,6 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             .interpolator(t => d3.interpolate('#e0e7ed', '#1a4a6e')(Math.pow(t, 0.5)));
 
         // Draw geographic view
-        console.log('Drawing', geoData.features.length, 'constituencies');
-        console.log('Scale:', geoScale, 'Offset:', geoOffsetX, geoOffsetY);
-        console.log('Bounds:', xMin, xMax, yMin, yMax);
-
         const geoPaths = g.selectAll('path')
             .data(geoData.features)
             .join('path')
