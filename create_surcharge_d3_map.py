@@ -525,7 +525,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         });
 
         // Calculate hex positions - centered in SVG
-        const hexSize = 18;
+        const hexSize = 9;
         const hexWidth = hexSize * 2;
         const hexHeight = Math.sqrt(3) * hexSize;
         const hexRangeQ = hexQMax - hexQMin;
