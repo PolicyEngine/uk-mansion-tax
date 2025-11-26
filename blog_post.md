@@ -107,6 +107,8 @@ We found:
 
 This ratio is consistent with annual property turnover rates of 5-10% of housing stock. Our constituency-level allocations assume the geographic distribution of high-value sales reflects the distribution of high-value housing stock.
 
+We do not scale up transaction volumes to 2028 levels (the OBR [forecasts](https://obr.uk/efo/economic-and-fiscal-outlook-november-2025/) transactions rising from 1.1 million in 2024 to 1.3 million in 2029). Since we allocate the OBR's total revenue estimate proportionally by constituency, the absolute number of sales matters less than their geographic distribution. The OBR's £400 million estimate already accounts for the full housing stock and projected behavioral responses.
+
 ### Behavioural effects
 
 The OBR's £400 million estimate incorporates behavioural responses including:
