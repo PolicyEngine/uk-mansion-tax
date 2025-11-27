@@ -209,7 +209,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             width: 180px;
             height: 12px;
             border-radius: 3px;
-            background: linear-gradient(to right, #B8E6E6, #39C6C0, #2C6496);
+            background: linear-gradient(to right, #B8E6E6, #39C6C0, #1a3a5c);
         }
         .legend-labels {
             display: flex;
@@ -398,7 +398,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         const dataHeight = yMax - yMin;
         const geoScale = Math.min((width - 2 * padding) / dataWidth, (height - 2 * padding) / dataHeight);
         const geoOffsetX = (width - dataWidth * geoScale) / 2;
-        const geoOffsetY = (height - dataHeight * geoScale) / 2 - 150;
+        const geoOffsetY = (height - dataHeight * geoScale) / 2 + 100;
 
         const projection = d3.geoTransform({
             point: function(x, y) {
@@ -435,16 +435,22 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
         const maxPct = Math.max(...Object.values(impactData).map(d => d.pct));
         document.getElementById('max-pct-label').textContent = maxPct.toFixed(1) + '%';
 
-        const colorScale = d3.scaleSequential()
-            .domain([0, maxPct])
-            .interpolator(t => {
-                // Interpolate from visible light teal -> teal -> blue
-                if (t < 0.5) {
-                    return d3.interpolate('#B8E6E6', '#39C6C0')(t * 2);
-                } else {
-                    return d3.interpolate('#39C6C0', '#2C6496')((t - 0.5) * 2);
-                }
-            });
+        // Use log scale for better variation (add small offset to handle 0 values)
+        const minPct = 0.01;  // Minimum for log scale
+        const logScale = d3.scaleLog()
+            .domain([minPct, maxPct])
+            .range([0, 1])
+            .clamp(true);
+
+        const colorScale = (pct) => {
+            const t = logScale(Math.max(pct, minPct));
+            // Interpolate from light teal -> teal -> dark blue
+            if (t < 0.5) {
+                return d3.interpolate('#B8E6E6', '#39C6C0')(t * 2);
+            } else {
+                return d3.interpolate('#39C6C0', '#1a3a5c')((t - 0.5) * 2);
+            }
+        };
 
         // Draw geographic view
         const geoPaths = g.selectAll('path')
@@ -454,23 +460,28 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             .attr('d', pathGenerator)
             .attr('fill', d => {
                 const data = impactData[d.properties.Name];
-                return data ? colorScale(data.pct) : '#F7FDFC';
+                return data ? colorScale(data.pct) : '#e5e5e5';
             })
-            .attr('stroke', '#fff')
-            .attr('stroke-width', 0.3)
+            .attr('stroke', 'none')
+            .attr('opacity', 0.6)
+            .on('mouseenter', function(event, d) {
+                const name = d.properties.Name;
+                const data = impactData[name] || { pct: 0, num: 0, rev: 0 };
+                showTooltip(name, data, event);
+                d3.select(this).attr('opacity', 1);
+            })
             .on('mousemove', function(event, d) {
                 const name = d.properties.Name;
                 const data = impactData[name] || { pct: 0, num: 0, rev: 0 };
                 showTooltip(name, data, event);
-                // Highlight
-                g.selectAll('.constituency-path, .hex')
-                    .attr('stroke', '#fff')
-                    .attr('stroke-width', function() {
-                        return this.classList.contains('hex') ? 1 : 0.3;
-                    });
-                d3.select(this).attr('stroke', '#39C6C0').attr('stroke-width', 2);
             })
-            .on('mouseout', hideTooltip);
+            .on('mouseleave', function(event, d) {
+                d3.select(this).attr('opacity', 0.6);
+                hideTooltip();
+            });
+
+        // No data color for legend reference
+        const noDataColor = '#e5e5e5';
 
         function showTooltip(name, data, event) {
             tooltip.innerHTML = `
@@ -496,12 +507,6 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
 
         function hideTooltip() {
             tooltip.style.display = 'none';
-            g.selectAll('.constituency-path')
-                .attr('stroke', '#fff')
-                .attr('stroke-width', 0.3);
-            g.selectAll('.hex')
-                .attr('stroke', '#fff')
-                .attr('stroke-width', 1);
         }
 
         // Build hex data
@@ -565,20 +570,24 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
             })
             .attr('fill', d => {
                 const data = impactData[d.name];
-                return data ? colorScale(data.pct) : '#F7FDFC';
+                return data ? colorScale(data.pct) : '#e5e5e5';
             })
-            .attr('stroke', '#fff')
-            .attr('stroke-width', 1)
+            .attr('stroke', 'none')
+            .attr('opacity', 0.6)
             .style('display', 'none')
+            .on('mouseenter', function(event, d) {
+                const data = impactData[d.name] || { pct: 0, num: 0, rev: 0 };
+                showTooltip(d.name, data, event);
+                d3.select(this).attr('opacity', 1);
+            })
             .on('mousemove', function(event, d) {
                 const data = impactData[d.name] || { pct: 0, num: 0, rev: 0 };
                 showTooltip(d.name, data, event);
-                g.selectAll('.hex')
-                    .attr('stroke', '#fff')
-                    .attr('stroke-width', 1);
-                d3.select(this).attr('stroke', '#39C6C0').attr('stroke-width', 2);
             })
-            .on('mouseout', hideTooltip);
+            .on('mouseleave', function(event, d) {
+                d3.select(this).attr('opacity', 0.6);
+                hideTooltip();
+            });
 
         // View toggle
         let currentView = 'geo';
@@ -589,7 +598,7 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
                 geoPaths.style('display', null)
                     .attr('fill', d => {
                         const data = impactData[d.properties.Name];
-                        return data ? colorScale(data.pct) : '#F7FDFC';
+                        return data ? colorScale(data.pct) : '#e5e5e5';
                     });
                 hexes.style('display', 'none');
                 document.getElementById('btn-geo').classList.add('active');
@@ -658,9 +667,12 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
 
                     // Highlight constituency
                     if (currentView === 'geo') {
+                        // Reset all opacity
+                        g.selectAll('.constituency-path').attr('opacity', 0.6);
+                        // Highlight selected
                         g.selectAll('.constituency-path')
-                            .attr('stroke', d => d.properties.Name === name ? '#39C6C0' : '#fff')
-                            .attr('stroke-width', d => d.properties.Name === name ? 2 : 0.3);
+                            .filter(d => d.properties.Name === name)
+                            .attr('opacity', 1);
 
                         // Zoom to constituency
                         const feature = geoData.features.find(f => f.properties.Name === name);
@@ -677,9 +689,12 @@ def generate_d3_map_html(hexjson, geojson, impact_data):
                             );
                         }
                     } else {
+                        // Reset all opacity
+                        g.selectAll('.hex').attr('opacity', 0.6);
+                        // Highlight selected
                         g.selectAll('.hex')
-                            .attr('stroke', d => d.name === name ? '#39C6C0' : '#fff')
-                            .attr('stroke-width', d => d.name === name ? 2 : 1);
+                            .filter(d => d.name === name)
+                            .attr('opacity', 1);
                     }
                 });
             });
