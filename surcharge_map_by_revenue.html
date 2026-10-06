@@ -423,16 +423,23 @@
         const noDataColor = '#e5e5e5';
 
         function showTooltip(name, data, event) {
+            // Calculate share of properties (based on num)
+            const totalProperties = Object.values(impactData).reduce((sum, d) => sum + d.num, 0);
+            const propShare = totalProperties > 0 ? (data.num / totalProperties * 100) : 0;
+
             tooltip.innerHTML = `
                 <h4>${name}</h4>
-                <div class="tooltip-value">${data.pct.toFixed(2)}%</div>
-                <div class="tooltip-row">
-                    <span>Projected sales</span>
-                    <span>${data.num.toLocaleString()}</span>
-                </div>
                 <div class="tooltip-row">
                     <span>Est. revenue</span>
                     <span>£${(data.rev / 1000000).toFixed(1)}m</span>
+                </div>
+                <div class="tooltip-row">
+                    <span>Share of revenue</span>
+                    <span>${data.pct.toFixed(2)}%</span>
+                </div>
+                <div class="tooltip-row">
+                    <span>Share of properties</span>
+                    <span>${propShare.toFixed(2)}%</span>
                 </div>
             `;
             tooltip.style.display = 'block';
