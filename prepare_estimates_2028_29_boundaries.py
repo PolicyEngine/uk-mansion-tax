@@ -1,6 +1,6 @@
-"""Write estimates_2026/constituencies_2024_england_paths.json for the geographic view.
+"""Write estimates_2028_29/constituencies_2024_england_paths.json for the geographic view.
 
-    python prepare_boundaries_2026.py
+    python prepare_estimates_2028_29_boundaries.py
 
 Takes the 2024 Westminster constituency boundaries that the November 2025 map
 embeds (surcharge_map_by_revenue.html, British National Grid), keeps the 543
@@ -15,7 +15,7 @@ import unicodedata
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE / "estimates_2026" / "constituencies_2024_england_paths.json"
+OUT = HERE / "estimates_2028_29" / "constituencies_2024_england_paths.json"
 METRES_PER_UNIT = 250  # one SVG unit; outlines are simplified to about one unit
 
 
@@ -57,7 +57,7 @@ def main():
     start = page.index("const geoData = ") + len("const geoData = ")
     geo, _ = json.JSONDecoder().raw_decode(page[start:])
     features = {norm(f["properties"]["Name"]): f for f in geo["features"]}
-    with open(HERE / "estimates_2026" / "constituencies_2024_hex.csv", newline="") as f:
+    with open(HERE / "estimates_2028_29" / "constituencies_2024_hex.csv", newline="") as f:
         seats = list(csv.DictReader(f))
 
     polygons = {}
