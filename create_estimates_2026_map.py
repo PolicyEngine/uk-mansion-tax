@@ -4,9 +4,11 @@
 
 Reads estimates_2026/constituency_estimates_2026.csv and
 estimates_2026/estimates_2026_summary.json (exported from PolicyEngine's
-disclosure-controlled analysis of Microcosm UK data) and
+disclosure-controlled analysis of Microcosm UK data),
 estimates_2026/constituencies_2024_hex.csv (the ODI hex layout of the 2024
-constituencies). Needs only the Python standard library.
+constituencies) and estimates_2026/constituencies_2024_england_paths.json
+(their simplified boundaries, from prepare_boundaries_2026.py). Needs only
+the Python standard library.
 """
 
 import csv
@@ -76,7 +78,10 @@ def main():
     page = TEMPLATE
     for key, value in text.items():
         page = page.replace("{{" + key + "}}", value)
-    payload = {"seats": seats, "width": round(max(cx) + 1, 3), "height": round(max(cy) + 1, 3)}
+    boundaries = json.loads((DATA / "constituencies_2024_england_paths.json").read_text())
+    assert set(boundaries["paths"]) == {s["code"] for s in seats}, "every constituency needs a boundary"
+    payload = {"seats": seats, "width": round(max(cx) + 1, 3), "height": round(max(cy) + 1, 3),
+               "geo": {k: boundaries[k] for k in ("width", "height", "paths")}}
     page = page.replace("/*DATA*/null", json.dumps(payload, separators=(",", ":")))
     assert "{{" not in page, "unfilled placeholder"
     OUT.write_text(page)
@@ -108,10 +113,15 @@ TEMPLATE = r"""<!doctype html>
   .map { border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--card); }
   .controls { display:flex; gap:6px; justify-content:flex-end; margin:0 0 6px; }
   button { font:inherit; font-size:14px; padding:3px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); cursor:pointer; }
-  svg.hexmap { width:100%; height:auto; display:block; cursor:grab; touch-action:pan-y; }
-  svg.hexmap.dragging { cursor:grabbing; }
+  svg.mapview { width:100%; height:auto; display:block; cursor:grab; touch-action:pan-y; }
+  svg.mapview.dragging { cursor:grabbing; }
   .hex { stroke:var(--bg); stroke-width:0.12; }
   .hex:hover { stroke:var(--fg); stroke-width:0.25; }
+  .geo { stroke:#ffffff; stroke-width:0.5; vector-effect:non-scaling-stroke; }
+  .geo:hover { stroke:var(--fg); stroke-width:1.5; }
+  .controls { justify-content:space-between; flex-wrap:wrap; }
+  .controls span { display:inline-flex; gap:6px; }
+  button[aria-pressed="true"] { background:#e6f1f6; border-color:#9cc3d6; font-weight:600; }
   .legend { margin-top:8px; font-size:13px; color:var(--muted); }
   .ramp { height:10px; border-radius:3px; margin:3px 0; }
   .ticks { display:flex; justify-content:space-between; }
@@ -143,8 +153,9 @@ TEMPLATE = r"""<!doctype html>
 </div>
 <div class="layout">
   <div class="map">
-    <div class="controls"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zreset">Reset</button></div>
-    <svg class="hexmap" id="hexmap" role="img" aria-label="Hex map of constituencies in England coloured by estimated surcharge revenue; constituencies not reported are hatched grey"></svg>
+    <div class="controls"><span><button id="vhex" aria-pressed="true">Hex map</button><button id="vgeo" aria-pressed="false">Geographic</button></span><span><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zreset">Reset</button></span></div>
+    <svg class="mapview" id="hexmap" role="img" aria-label="Hex map of constituencies in England coloured by estimated surcharge revenue; constituencies not reported are hatched grey"></svg>
+    <svg class="mapview" id="geomap" role="img" style="display:none" aria-label="Map of constituencies in England, with their boundaries, coloured by estimated surcharge revenue; constituencies not reported are hatched grey"></svg>
     <div class="legend">
       <div>Estimated revenue a year, square-root scale</div>
       <div class="ramp" id="ramp"></div>
@@ -169,6 +180,7 @@ TEMPLATE = r"""<!doctype html>
 <p><b>Policy.</b> England only, from April 2028, owners liable: £2,500 a year for homes worth £2m–£2.5m, £3,500 for £2.5m–£3.5m, £5,000 for £3.5m–£5m and £7,500 above £5m, at April 2026 values. policyengine-uk uprates 2024 values to 2026 by GDP per capita (+7.4%); house prices (+5.3%) would put fewer homes over each threshold. CPI uprating of the charges from 2029-30 is not modelled. Revenue is static: no behaviour, appeals, non-payment or deferral.</p>
 <p><b>Coverage.</b> Only owner-occupied main residences are modelled, so second homes and let or company-owned homes are missing. Their share is uncertain: the OBR puts non-owner-occupied homes at about 40% of liable properties (from stamp duty data), while MHCLG's Market Value Survey, cited in the May 2026 consultation, found over 90% of homes worth £2m or more owner occupied in 2024.</p>
 <p><b>Privacy.</b> The survey data are licensed from the UK Data Service. To protect respondents, a constituency is reported only if at least 10 survey households above £2m sit behind its estimate, and every estimate from the survey microdata carries keyed noise: each survey household's weight is multiplied by a fixed secret factor between 8% and 12% away from 1. That typically moves a constituency's estimate by a few per cent, more where one household carries much of it.</p>
+<p><b>Maps.</b> The hex map gives every constituency the same size, so small urban seats stay visible; the geographic map shows the 2024 constituency boundaries (contains OS data © Crown copyright and database right 2024), simplified to about 250 m.</p>
 <p><b>Earlier map.</b> The <a href="surcharge_map_by_revenue.html">November 2025 map</a> allocated the OBR's estimate by 2024 Land Registry sales; it is kept unchanged for the article that embeds it.</p>
 </div>
 </details>
@@ -178,6 +190,9 @@ TEMPLATE = r"""<!doctype html>
   <defs><pattern id="hatch" width="0.45" height="0.45" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
     <rect width="0.45" height="0.45" style="fill:var(--zero)"></rect><line x1="0" y1="0" x2="0" y2="0.45" stroke="#b3bac3" stroke-width="0.1"></line>
   </pattern>
+  <pattern id="hatch-geo" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="16" height="16" style="fill:var(--zero)"></rect><line x1="0" y1="0" x2="0" y2="16" stroke="#b3bac3" stroke-width="4"></line>
+  </pattern>
   <pattern id="hatch-key" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
     <rect width="5" height="5" style="fill:var(--zero)"></rect><line x1="0" y1="0" x2="0" y2="5" stroke="#9aa3ad" stroke-width="1.4"></line>
   </pattern></defs>
@@ -185,7 +200,6 @@ TEMPLATE = r"""<!doctype html>
 <script>
 const DATA = /*DATA*/null;
 const RAMP = ["#d6ecf3", "#a6d3e3", "#6fb3cd", "#3f8fb2", "#2c6e8f", "#1d4a63"];
-const state = { k: 1, tx: 0, ty: 0 };
 const max = Math.max(...DATA.seats.map(s => s.v || 0));
 
 function colour(t) {
@@ -203,9 +217,6 @@ function hexPath(cx, cy) {
 const money = v => "£" + v.toFixed(1) + "m";
 const svgEl = (tag, attrs, parent) => { const n = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent.appendChild(n); return n; };
 
-const svg = document.getElementById("hexmap");
-svg.setAttribute("viewBox", `0 0 ${DATA.width} ${DATA.height}`);
-const g = svgEl("g", {}, svg);
 const tip = document.getElementById("tip");
 function showTip(ev, s) {
   tip.innerHTML = `<div class="t">${s.name}</div><div class="m">${s.region}</div>` +
@@ -214,33 +225,60 @@ function showTip(ev, s) {
   const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8), y = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
   tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
 }
-for (const s of DATA.seats) {
-  const h = svgEl("path", { class: "hex", d: hexPath(s.cx, s.cy) }, g);
-  h.style.fill = s.v === null ? "url(#hatch)" : colour(Math.sqrt(s.v / max));
-  h.addEventListener("pointermove", ev => showTip(ev, s));
-  h.addEventListener("pointerleave", () => { tip.style.display = "none"; });
+
+// Two views of the same figures: the hex cartogram, where every constituency
+// is the same size, and the constituencies' own boundaries.
+const views = {
+  hex: { svg: document.getElementById("hexmap"), width: DATA.width, height: DATA.height, hatch: "url(#hatch)", maxZoom: 12 },
+  geo: { svg: document.getElementById("geomap"), width: DATA.geo.width, height: DATA.geo.height, hatch: "url(#hatch-geo)", maxZoom: 30 },
+};
+function apply(view) { view.g.setAttribute("transform", `translate(${view.state.tx},${view.state.ty}) scale(${view.state.k})`); }
+function zoomAt(view, x, y, k) {
+  const st = view.state;
+  k = Math.min(view.maxZoom, Math.max(1, k));
+  st.tx = x - (x - st.tx) * (k / st.k); st.ty = y - (y - st.ty) * (k / st.k); st.k = k;
+  if (k === 1) { st.tx = 0; st.ty = 0; }
+  apply(view);
 }
+function attachZoom(view) {
+  const svg = view.svg;
+  const toUser = ev => { const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+  svg.addEventListener("wheel", ev => { ev.preventDefault(); const p = toUser(ev); zoomAt(view, p.x, p.y, view.state.k * (ev.deltaY < 0 ? 1.2 : 1 / 1.2)); }, { passive: false });
+  let drag = null;
+  svg.addEventListener("pointerdown", ev => { drag = { p: toUser(ev), tx: view.state.tx, ty: view.state.ty }; svg.classList.add("dragging"); });
+  svg.addEventListener("pointermove", ev => { if (!drag || !(ev.buttons & 1)) return; const p = toUser(ev); view.state.tx = drag.tx + (p.x - drag.p.x); view.state.ty = drag.ty + (p.y - drag.p.y); apply(view); });
+  const end = () => { drag = null; svg.classList.remove("dragging"); };
+  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
+}
+for (const [name, view] of Object.entries(views)) {
+  view.svg.setAttribute("viewBox", `0 0 ${view.width} ${view.height}`);
+  view.g = svgEl("g", {}, view.svg);
+  view.state = { k: 1, tx: 0, ty: 0 };
+  for (const s of DATA.seats) {
+    const d = name === "hex" ? hexPath(s.cx, s.cy) : DATA.geo.paths[s.code];
+    const shape = svgEl("path", { class: name, d }, view.g);
+    shape.style.fill = s.v === null ? view.hatch : colour(Math.sqrt(s.v / max));
+    shape.addEventListener("pointermove", ev => showTip(ev, s));
+    shape.addEventListener("pointerleave", () => { tip.style.display = "none"; });
+  }
+  attachZoom(view);
+}
+let active = views.hex;
+function show(name) {
+  for (const [n, v] of Object.entries(views)) v.svg.style.display = n === name ? "" : "none";
+  active = views[name];
+  document.getElementById("vhex").setAttribute("aria-pressed", String(name === "hex"));
+  document.getElementById("vgeo").setAttribute("aria-pressed", String(name === "geo"));
+  tip.style.display = "none";
+}
+document.getElementById("vhex").onclick = () => show("hex");
+document.getElementById("vgeo").onclick = () => show("geo");
+document.getElementById("zin").onclick = () => zoomAt(active, active.width / 2, active.height / 2, active.state.k * 1.5);
+document.getElementById("zout").onclick = () => zoomAt(active, active.width / 2, active.height / 2, active.state.k / 1.5);
+document.getElementById("zreset").onclick = () => { active.state = { k: 1, tx: 0, ty: 0 }; apply(active); };
 document.getElementById("ramp").style.background = "linear-gradient(90deg," + Array.from({ length: 11 }, (_, i) => colour(i / 10)).join(",") + ")";
 document.getElementById("tmid").textContent = money(max / 4);
 document.getElementById("tmax").textContent = money(max);
-
-function apply() { g.setAttribute("transform", `translate(${state.tx},${state.ty}) scale(${state.k})`); }
-function zoomAt(x, y, k) {
-  k = Math.min(12, Math.max(1, k));
-  state.tx = x - (x - state.tx) * (k / state.k); state.ty = y - (y - state.ty) * (k / state.k); state.k = k;
-  if (k === 1) { state.tx = 0; state.ty = 0; }
-  apply();
-}
-const toUser = ev => { const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
-svg.addEventListener("wheel", ev => { ev.preventDefault(); const p = toUser(ev); zoomAt(p.x, p.y, state.k * (ev.deltaY < 0 ? 1.2 : 1 / 1.2)); }, { passive: false });
-let drag = null;
-svg.addEventListener("pointerdown", ev => { drag = { p: toUser(ev), tx: state.tx, ty: state.ty }; svg.classList.add("dragging"); });
-svg.addEventListener("pointermove", ev => { if (!drag || !(ev.buttons & 1)) return; const p = toUser(ev); state.tx = drag.tx + (p.x - drag.p.x); state.ty = drag.ty + (p.y - drag.p.y); apply(); });
-const end = () => { drag = null; svg.classList.remove("dragging"); };
-svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
-document.getElementById("zin").onclick = () => zoomAt(DATA.width / 2, DATA.height / 2, state.k * 1.5);
-document.getElementById("zout").onclick = () => zoomAt(DATA.width / 2, DATA.height / 2, state.k / 1.5);
-document.getElementById("zreset").onclick = () => { state.k = 1; state.tx = 0; state.ty = 0; apply(); };
 </script>
 </body>
 </html>
