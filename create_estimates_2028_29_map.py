@@ -141,7 +141,7 @@ TEMPLATE = r"""<!doctype html>
   button:focus-visible, input:focus-visible, th button:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
   .mapview-wrap { display:grid; grid-template-columns:minmax(0, 1fr) 250px; gap:20px; align-items:start; }
   @media (max-width: 820px) { .mapview-wrap { grid-template-columns:1fr; } }
-  svg.mapview { width:100%; height:auto; max-height:min(78vh, 720px); display:block; cursor:grab; touch-action:pan-y; }
+  svg.mapview { width:100%; height:auto; max-height:min(62vh, 540px); margin:8px 0; display:block; cursor:grab; touch-action:pan-y; }
   svg.mapview.dragging { cursor:grabbing; }
   .hex { stroke:var(--background); stroke-width:0.12; }
   .hex:hover { stroke:var(--foreground); stroke-width:0.25; }
