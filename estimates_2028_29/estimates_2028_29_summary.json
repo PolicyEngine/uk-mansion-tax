@@ -8,7 +8,7 @@
   "policyengine_uk": "2.132.6"
  },
  "revenue_year": "2028-29",
- "basis": "2028-29 charges on homes at April 2026 values; households grown from 2024-25 to 2028-29 with the ONS population projection, as in policyengine-uk",
+ "basis": "2028-29 charges on homes at April 2026 values; households grown from 2024-25 to 2028-29 with the ONS projection of UK population, as in policyengine-uk",
  "noise": "keyed: each survey household's weight times a fixed factor 8-12% from 1",
  "seats_shown": 110,
  "seats": 543,
