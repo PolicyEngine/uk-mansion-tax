@@ -147,7 +147,7 @@ TEMPLATE = r"""<!doctype html>
 <div class="wrap">
   <header>
     <h1>High value council tax surcharge by constituency, 2028-29</h1>
-    <p>Estimated static revenue a year from owner-occupied homes worth over £2m. Experimental modelled estimates from survey microdata, with wide uncertainty; not official statistics.</p>
+    <p>Estimated static revenue a year from owner-occupied homes worth over £2m.</p>
   </header>
   <div class="toolbar">
     <div class="tabs" role="tablist" aria-label="View">
