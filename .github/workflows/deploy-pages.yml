@@ -30,11 +30,17 @@ jobs:
       - name: Create pages directory
         run: |
           mkdir -p _site
+          # The 2026 constituency estimates are the landing page; estimates_2026/
+          # holds only the files the page links to.
+          cp constituency_estimates_2026.html _site/
+          mkdir -p _site/estimates_2026
+          cp estimates_2026/constituency_estimates_2026.csv estimates_2026/estimates_2026_summary.json _site/estimates_2026/
+          # Kept unchanged: PolicyEngine's November 2025 article embeds this map.
           cp surcharge_map_by_revenue.html _site/
           cp mansion_tax_map_1m.html _site/ 2>/dev/null || true
           cp mansion_tax_map_2m.html _site/ 2>/dev/null || true
           cp -r data _site/ 2>/dev/null || true
-          echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=surcharge_map_by_revenue.html"></head></html>' > _site/index.html
+          echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=constituency_estimates_2026.html"></head></html>' > _site/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
