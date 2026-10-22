@@ -1,0 +1,32 @@
+{
+ "release": {
+  "dataset": "Microcosm UK 2024-25 local-area release (microcosm_uk_2024_25_dense)",
+  "cut": "microcosm-uk-2024-25-dense-20261019T000432Z-ee5c2dbe",
+  "sha256": "8e10e130d0260e0b52e2e29902f0502ebdff76a14a3e57d2c876bf4cd8db5872",
+  "households": 150000,
+  "policyengine": "6.10.0",
+  "policyengine_uk": "2.132.6"
+ },
+ "revenue_year": "2028-29",
+ "basis": "2028-29 charges on homes at April 2026 values; households grown from 2024-25 to 2028-29 with the ONS projection of UK population, as in policyengine-uk",
+ "noise": "keyed: each survey household's weight times a fixed factor 8-12% from 1",
+ "seats_shown": 110,
+ "seats": 543,
+ "share_of_owner_occupied_2m_homes_in_shown_seats": 0.8829198570989975,
+ "share_of_private_sector_2m_homes_in_shown_seats": 0.9106868004180075,
+ "share_of_band_h_homes_in_shown_seats": 0.8049766931724706,
+ "top_20_and_50_seats_by_2m_homes_shown": [
+  20,
+  50
+ ],
+ "england_revenue_current_law_m": 410,
+ "england_revenue_90pct_interval_m": [
+  360,
+  480
+ ],
+ "england_homes_2m_plus_k": 127,
+ "median_coefficient_of_variation_of_shown_seats": 0.38,
+ "share_of_shown_seats_whose_90pct_interval_includes_zero": 0.0,
+ "median_top20_seats_kept_in_a_resample": 17,
+ "rank_correlation_with_voa_band_h": 0.77
+}
