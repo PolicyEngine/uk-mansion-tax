@@ -28,5 +28,35 @@
  "median_coefficient_of_variation_of_shown_seats": 0.38,
  "share_of_shown_seats_whose_90pct_interval_includes_zero": 0.0,
  "median_top20_seats_kept_in_a_resample": 17,
- "rank_correlation_with_voa_band_h": 0.77
+ "rank_correlation_with_voa_band_h": 0.77,
+ "england_revenue_current_law_m_by_year": {
+  "2028-29": 410,
+  "2029-30": 420,
+  "2030-31": 430
+ },
+ "share_of_owner_occupied_2m_homes_by_region": {
+  "London": 0.54,
+  "South East": 0.25,
+  "East of England": 0.09,
+  "South West": 0.06
+ },
+ "share_of_revenue_by_income_decile": {
+  "10 (top)": 0.54,
+  "6-9": 0.29,
+  "1-5 (incl. negative income)": 0.17
+ },
+ "support_scheme_proxy": {
+  "share_of_payers_with_net_income_under_30k": 0.19,
+  "share_of_revenue_from_those_payers": 0.19,
+  "revenue_reduction_at_75pct_takeup": 0.14
+ },
+ "method": {
+  "bootstrap_resamples": 500,
+  "survey_household_floor": 10,
+  "noise_factor_distance_from_1": [
+   0.08,
+   0.12
+  ],
+  "incomes_from": "policyengine-uk 2.122.2"
+ }
 }
