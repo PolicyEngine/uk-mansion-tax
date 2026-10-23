@@ -117,7 +117,6 @@ TEMPLATE = r"""<!doctype html>
   .ticks { display:flex; justify-content:space-between; }
   .key { display:flex; gap:6px; align-items:center; max-width:280px; }
   .key svg { flex:none; }
-  .hint { flex:1 1 200px; }
   #p-table { display:flex; flex-direction:column; gap:8px; }
   .table-tools { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
   .table-tools input { flex:1 1 220px; max-width:340px; font:inherit; font-size:14px; padding:6px 10px; border:1px solid var(--border-medium); border-radius:6px; color:var(--foreground); }
@@ -175,9 +174,8 @@ TEMPLATE = r"""<!doctype html>
   <div class="legend" id="legend">
     <div class="scale"><b>Estimated revenue a year</b> (square-root scale)<div class="ramp" id="ramp"></div><div class="ticks"><span>£0</span><span id="tmid"></span><span id="tmax"></span></div></div>
     <div class="key"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" rx="2" fill="url(#hatch-key)"></rect></svg><span>Not reported ({{SEATS_HIDDEN}} of {{SEATS}}): fewer than 10 survey households above £2m</span></div>
-    <div class="hint"><span class="long">Zoom with + and −, or hold Ctrl or ⌘ and scroll; drag to pan. Hover over or tap a constituency for its estimate.</span><span class="short">Tap a constituency for its estimate; zoom with + and −.</span></div>
   </div>
-  <div class="source">Experimental modelled estimates from survey microdata, with wide uncertainty; not official statistics. Source: PolicyEngine analysis of Microcosm UK survey microdata (19 October 2026 release). Every estimate carries keyed noise to protect survey respondents. <a href="estimates_2028_29/constituency_estimates_2028_29.csv" target="_blank" rel="noopener">Download all {{SEATS}} constituencies (CSV)</a>.</div>
+  <div class="source">Experimental modelled estimates from survey microdata, with wide uncertainty; not official statistics. Source: PolicyEngine, policyengine 6.10.0. Every estimate carries keyed noise to protect survey respondents.</div>
 </div>
 <div id="tip"></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
