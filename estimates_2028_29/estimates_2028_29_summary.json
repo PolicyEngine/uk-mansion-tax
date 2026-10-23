@@ -40,10 +40,12 @@
   "East of England": 0.09,
   "South West": 0.06
  },
- "share_of_revenue_by_income_decile": {
-  "10 (top)": 0.54,
-  "6-9": 0.29,
-  "1-5 (incl. negative income)": 0.17
+ "share_of_revenue_by_income_quintile": {
+  "1": 0.08,
+  "2": 0.07,
+  "3": 0.07,
+  "4": 0.14,
+  "5": 0.65
  },
  "support_scheme_proxy": {
   "share_of_payers_with_net_income_under_30k": 0.19,
